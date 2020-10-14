@@ -28,29 +28,6 @@ Poly Network基于侧链/中继模式，采用双层结构设计，使用Poly中
 
 这种验证过程目前都是通过merkle证明的形式实现的，即原链将其上发生的行为存储下来，并构造一棵merkle tree，然后将merkle tree的树根root和该行为的proof提交给目标链。目标链根据提交的merkle root验证proof的合法性，从而确定原链上发生的行为。
 
-## 架构
-
-<div align=center><img width="290" height="458" src="CrossChainStructure.png"/></div>
-
-上图显示了Neo跨链生态的架构，从上到下分别是Neo链、Neo链的Relayer、中继链Poly、目标链的Relayer和目标链。简单来说，用户在Neo链上发出的跨链交易的证明会经由Relayer传递到Poly，再由目标链的Relayer传递到目标链，目标链验证Neo链上的交易证明并执行相应的交易。反之亦然。
-
-生态中的角色定义如下：
-
-- **中继链 Poly**：中继链是整个生态中的重要部分，每个节点由不同的个人或组织运行，有自己独特的治理模式和信任机制，它负责将各个链连接到一起和跨链信息的传递。
-- **Relayer**：每条链都有自己的Relayer，它们负责把交易等跨链信息搬运到中继链或从中继链搬运到源链，并且它们会在这个过程中获取收益。
-- **应用**：应用是指开发跨链业务的人或组织，任何人都可以部署跨链合约来构建跨链应用，然后把应用公开出去招揽用户。
-- **用户**：对跨链生态来说，最重要的就是用户，通过调用具有跨链功能的应用，实现Neo到以太坊等链的跨链业务。
-
-## Neo链和中继链之间的区块头同步
-
-<div align=center><img src="HeaderSync.png"/></div>
-
-上图展示了Neo链和中继链之间同步区块头的具体流程：
-
-一方面，Neo链的共识节点由Neo持有者实时投票选举产生，理论上每个区块的验证者集合都可能变化。若验证者集合保持不变，则不需要同步该区块头，只需要同步关键区块头（即包含切换了验证者集合后的区块头），这样可以大大减少需要同步的区块头数量。同时由于Neo的merkle root不包含在区块头中，而是由共识节点独立签名并广播，所以当有跨链交易发生时，Relayer会把这些交易所在区块的merkle root和proof以及区块高度转发给中继链，中继链仅更新一下当前已同步的Neo链的高度并转发merkle root和proof。
-
-另一方面，中继链区块头由Relayer同步到Neo链，Neo链的跨链管理合约会验证区块头的合法性，并存储区块头，该链的其它任何合约都可以从该合约中读取同步的区块头。
-
 ## Neo链和中继链之间的跨链交易
 
 <div align=center><img src="Neo2Relay.png"/></div>
@@ -474,3 +451,23 @@ public static bool Lock(byte[] fromAssetHash, byte[] fromAddress, BigInteger toC
 - toChainId: 2 (Ethereum链的编码)  
 - toAddress: 0x0B24aBDd39185055311aaa27082F9dEb294A7255 (Ethereum链地址)  
 - amount: 10000 (跨链数量)
+
+## 跨链资产列表
+
+当前Neo上已有的跨链资产如下表所示：
+
+Type | Contract Hash | Desc
+---|---|---
+ETHx | B: 0x17c76859c11bc14da5b3e9c88fa695513442c606 </br> L: 06c642345195a68fc8e9b3a54dc11bc15968c717 | Eth asset hash in Neo chain
+ONTx | B: 0x271e1e4616158c7440ffd1d5ca51c0c12c792833 </br> L: 3328792cc1c051cad5d1ff40748c1516461e1e27 | ONT asset hash in Neo chain
+pnWETH | B: 0x0df563008be710f3e0130208f8adc95ed7e5518d </br> L: 8d51e5d75ec9adf8080213e0f310e78b0063f50d | nWETH asset hash in Neo chain
+nNEO | B: 0xf46719e2d16bf50cddcef9d4bbfece901f73cbb6 </br> L: b6cb731f90cefebbd4f9cedd0cf56bd1e21967f4 | NEP5 aeest hash of NEO
+pONT | B: 0xc277117879af3197fbef92c71e95800aa3b89d9a </br> L: 9a9db8a30a80951ec792effb9731af79781177c2 | ONTd asset hash in Neo chain
+pnUSDT | B: 0x282e3340d5a1cd6a461d5f558d91bc1dbc02a07b </br> L: 7ba002bc1dbc918d555f1d466acda1d540332e28 | nUSDT asset hash in Neo chain
+pnWBTC | B: 0x534dcac35b0dfadc7b2d716a7a73a7067c148b37 </br> L: 378b147c06a7737a6a712d7bdcfa0d5bc3ca4d53 | nWBTC asset hash in Neo chain
+pnUNI_V2_ETH_WBTC | B: 0xc534d65c85c074887f58ed1f3bad7dfd739a525e </br> L: 5e529a73fd7dad3b1fed587f8874c0855cd634c5 | nUNI_V2_ETH_WBTC asset hash in Neo chain
+FLM | B: 0x4d9eab13620fe3569ba3b0e56e2877739e4145e3 </br> L: e345419e7377286ee5b0a39b56e30f6213ab9e4d | Flamingo token
+
+> Note 
+> **`B`** 表示大端序, 可直接使用该哈希值在区块浏览器中查询合约交易历史。
+>**`L`** 表示小端序，通常在执行资产哈希绑定时使用。

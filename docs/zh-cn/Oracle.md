@@ -15,13 +15,16 @@ Neo提供了内置的Oracle服务，以原生合约的形式供其他合约调�
 ## Oracle Request
 | 字段      | 字节数    | 描述                                         |
 | ---------- | --------- | ----------------------------------------------- |
-| OriginalTxid      | 32 bytes   | 包含请求的交易Id                                     |
 | GasForResponse   | long  |  获取响应所需的费用，由调用Oracle服务的合约设置                                   |
 | Url    | string  | 请求的Url |
 | Filter | string  | 过滤器，可用于过滤无用数据                       |
 | CallbackContract   | 20 bytes   | 回调合约                      |
 | CallbackMethod     | string | 回调方法名                      |
 | UserData     | var bytes | 用户提供的额外数据                      |
+
+### GasForResponse
+
+用于支付获取响应交易的费用，GasForResponse应不小于0.1GAS，否则无法发起Oracle请求。
 
 ## Oracle Response
 | 字段      | 字节数    | 描述                                         |
@@ -40,6 +43,8 @@ Code字段定义了响应交易的执行结果，包括以下五种类型：
 | `0x12`           | `Timeout`          | 执行超时    | `byte`  |
 | `0x14`           | `Forbidden`          | 无执行权限    | `byte`  |
 | `0xff`           | `Error`          | 执行错误    | `byte`  |
+
+
 
 ## 示例合约
 
