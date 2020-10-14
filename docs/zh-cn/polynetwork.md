@@ -2,33 +2,9 @@
 
 Poly Network基于侧链/中继模式，采用双层结构设计，使用Poly中继链作为跨链协调器，多条异构链作为跨链交易执行器，Relayer作为跨链信息的搬运工，通过解决跨链信息的有效性、安全性和事务性等问题，实现了一套安全、易用、高效的跨链体系。
 
-## 特性
-* 轻量级跨链协议
-* 接入简单方便
-* 同时支持同构链和异构链
-* 支持跨链事务强一致性和最终一致性
-* 资产跨链超级，同时支持资产跨链和任意信息跨链
-* 跨链协议安全可靠，以密码学为基石
-* 支持异构链协议范围广（BTC/ETH/NEO/Ontology/Cosmos）
-* 中继链是开放式准入的公链
-
 更多有关Poly Network的信息，请点击[此处](https://github.com/polynetwork/docs/blob/master/README_CN.md)查看。
 
-# Neo跨链设计
-
-## 概述
-
-目前在Neo上有两种方式可以实现跨链操作：一种是通过节点如Neo-CLI和Neo-GUI等调用合约发送跨链交易，另一种是通过SDK构造跨链交易。
-
-## 跨链的实现
-
-以资产跨链为例，用户把资产在原链上锁定，之后在目标链上发行映射资产，同时可以在目标链上申请提现，最后在原链上解锁。要实现该过程，则需要目标链可以验证原链上发生的行为，即验证原链上确实锁定了一定数量的原资产。
-
-非资产类的信息跨链也是如此，需要目标链验证原链上的信息变化，从而做出相应的变化。
-
-这种验证过程目前都是通过merkle证明的形式实现的，即原链将其上发生的行为存储下来，并构造一棵merkle tree，然后将merkle tree的树根root和该行为的proof提交给目标链。目标链根据提交的merkle root验证proof的合法性，从而确定原链上发生的行为。
-
-## Neo链和中继链之间的跨链交易
+# Neo链和中继链之间的跨链交易
 
 <div align=center><img src="Neo2Relay.png"/></div>
 
@@ -51,7 +27,7 @@ Poly Network基于侧链/中继模式，采用双层结构设计，使用Poly中
 4. Neo的Relayer会监听中继链，将区块头和proof提交到Neo链；
 5. Neo链的跨链管理合约会读取中继链区块头，验证中继链的proof，然后调用业务合约执行对应的逻辑。
 
-## Neo跨链合约开发
+# Neo跨链合约开发
 
 合约的跨链对开发者来说只需要关注一个跨链接口，也就是跨链管理合约（CCMC）的`CrossChain`接口，该接口将链A上已经执行的业务存入Merkle tree，会有矿工生成该跨链交易的Merkle proof，并将其提交到链B的跨链管理合约中，该跨链管理合约会验证Merkle proof，并按照参数调用智能合约B中对应的方法。
 
@@ -68,7 +44,7 @@ public static bool CrossChain(BigInteger toChainID, byte[] toChainAddress, byte[
 - functionName: 跨链资产数量
 - args: 序列化之后的目标合约输入参数
 
-### 跨链合约开发示例（新发行的NEP5资产）
+## 跨链合约开发示例（新发行的NEP5资产）
 
 要实现新发行的NEP5资产的跨链流通，需要在NEP5标准接口基础上增加`Lock`和`Unlock`接口。用户在源链调用`Lock`接口将资产锁定在智能合约A中，该接口同时调用跨链管理合约实现跨链调用智能合约B中的`Unlock`接口，并在目标链中将智能合约B中的资产释放给该用户。反之亦然。
 
@@ -205,13 +181,13 @@ private static bool Unlock(byte[] inputBytes, byte[] fromContract, BigInteger fr
 该接口会先校验调用是不是来自跨链管理合约，然后校验源链上的合约地址是否可信，接着反序列化出所需参数，最后解锁链B上的资产给用户及增加该资产总量。
 
 
-### 跨链合约开发示例（已发行的NEP5资产）
+## 跨链合约开发示例（已发行的NEP5资产）
 
 由于无法给已发行的NEP5资产添加`Lock`、`Unlock`方法，因此需要额外实现一个代理合约，相当于原先NEP5合约的补充功能，实现了跨链协议中的主要接口，也可以使用现有的代理合约实现跨链，避免重复开发。
 
 以下为代理合约必须实现的接口：
 
-#### BindProxyHash
+### BindProxyHash
 
 ```C#
 public static bool BindProxyHash(BigInteger toChainId, byte[] targetProxyHash)
@@ -230,7 +206,7 @@ public static bool BindProxyHash(BigInteger toChainId, byte[] targetProxyHash)
 
 该接口绑定目标链上的代理合约hash，或者实现了跨链接口的合约hash，在NEP5向其他链发起跨链的时候会将该目标链代理合约作为中转站，进而将NEP5转到目标链的映射合约，当然在跨链开始前应该预先部署好映射合约。
 
-#### BindAssetHash
+### BindAssetHash
 
 ```C#
 public static bool BindAssetHash(byte[] fromAssetHash, BigInteger toChainId, byte[] toAssetHash, BigInteger initialAmount)
@@ -259,7 +235,7 @@ public static bool BindAssetHash(byte[] fromAssetHash, BigInteger toChainId, byt
 
 该接口绑定NEP5资产合约地址和目标链映射合约，比如USDT地址，并设置初始锁定数量。
 
-#### Lock
+### Lock
 
 ```C#
 public static bool Lock(byte[] fromAssetHash, byte[] fromAddress, BigInteger toChainId, byte[] toAddress, BigInteger amount)
@@ -339,7 +315,7 @@ public static bool Lock(byte[] fromAssetHash, byte[] fromAddress, BigInteger toC
 
 该接口会把NEP5资产锁定到代理合约账户中，并调用跨链管理合约的`CrossChain`接口从而发出跨链请求。
 
-#### Unlock
+### Unlock
 
 ```C#
 private static bool Unlock(byte[] inputBytes, byte[] fromProxyContract, BigInteger fromChainId, byte[] caller)
@@ -409,9 +385,9 @@ private static bool Unlock(byte[] inputBytes, byte[] fromProxyContract, BigInteg
 
 所以代理合约主要实现的是NEP5的注册、锁定与解锁，锁定就是用户将NEP5转到合约中，解锁只有跨链管理合约可以调用。代理合约可以自己部署，也可以使用现有的合约，多个NEP5资产可以使用一本代理合约。
 
-### 如何将NEP5资产跨到其他链上
+## 如何将NEP5资产跨到其他链上
 
-#### 收集资产在链上对应的合约地址
+### 收集资产在链上对应的合约地址
 
 以某个NEP5资产为例，这种资产在链上的合约地址为：
 
@@ -419,9 +395,9 @@ private static bool Unlock(byte[] inputBytes, byte[] fromProxyContract, BigInteg
 
 -Ethereum链: 0x86B7Be11D77043E5aDe3858f2F694E4f89d4a941
 
-### 执行跨链操作
+## 执行跨链操作
 
-#### 集成跨链功能的NEP5资产
+### 集成跨链功能的NEP5资产
 
 如果该资产集成了跨链的Lock和Unlock接口，则可以直接调用该资产的Lock接口进行跨链资产转移：
 
@@ -436,7 +412,7 @@ public static bool Lock(byte[] fromAddress, BigInteger toChainId, byte[] toAddre
 - toAddress: 0x0B24aBDd39185055311aaa27082F9dEb294A7255 (Ethereum链地址)  
 - amount: 10000 (跨链数量)
 
-#### 未集成跨链功能的NEP5资产
+### 未集成跨链功能的NEP5资产
 
 如果该资产未集成跨链的Lock和Unlock接口，则需要调用该资产对应的代理合约的Lock接口：
 
@@ -452,16 +428,16 @@ public static bool Lock(byte[] fromAssetHash, byte[] fromAddress, BigInteger toC
 - toAddress: 0x0B24aBDd39185055311aaa27082F9dEb294A7255 (Ethereum链地址)  
 - amount: 10000 (跨链数量)
 
-## 跨链资产列表
+# 跨链资产列表
 
 当前Neo上已有的跨链资产如下表所示：
 
-Type | Contract Hash | Desc
+类型 | 合约哈希 | 描述
 ---|---|---
 ETHx | B: 0x17c76859c11bc14da5b3e9c88fa695513442c606 </br> L: 06c642345195a68fc8e9b3a54dc11bc15968c717 | Eth asset hash in Neo chain
 ONTx | B: 0x271e1e4616158c7440ffd1d5ca51c0c12c792833 </br> L: 3328792cc1c051cad5d1ff40748c1516461e1e27 | ONT asset hash in Neo chain
 pnWETH | B: 0x0df563008be710f3e0130208f8adc95ed7e5518d </br> L: 8d51e5d75ec9adf8080213e0f310e78b0063f50d | nWETH asset hash in Neo chain
-nNEO | B: 0xf46719e2d16bf50cddcef9d4bbfece901f73cbb6 </br> L: b6cb731f90cefebbd4f9cedd0cf56bd1e21967f4 | NEP5 aeest hash of NEO
+nNEO | B: 0xf46719e2d16bf50cddcef9d4bbfece901f73cbb6 </br> L: b6cb731f90cefebbd4f9cedd0cf56bd1e21967f4 | NEP5 asset hash of NEO
 pONT | B: 0xc277117879af3197fbef92c71e95800aa3b89d9a </br> L: 9a9db8a30a80951ec792effb9731af79781177c2 | ONTd asset hash in Neo chain
 pnUSDT | B: 0x282e3340d5a1cd6a461d5f558d91bc1dbc02a07b </br> L: 7ba002bc1dbc918d555f1d466acda1d540332e28 | nUSDT asset hash in Neo chain
 pnWBTC | B: 0x534dcac35b0dfadc7b2d716a7a73a7067c148b37 </br> L: 378b147c06a7737a6a712d7bdcfa0d5bc3ca4d53 | nWBTC asset hash in Neo chain
@@ -470,4 +446,4 @@ FLM | B: 0x4d9eab13620fe3569ba3b0e56e2877739e4145e3 </br> L: e345419e7377286ee5b
 
 > Note 
 > **`B`** 表示大端序, 可直接使用该哈希值在区块浏览器中查询合约交易历史。
->**`L`** 表示小端序，通常在执行资产哈希绑定时使用。
+> **`L`** 表示小端序，通常在执行资产哈希绑定时使用。

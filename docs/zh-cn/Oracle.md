@@ -15,16 +15,20 @@ Neo提供了内置的Oracle服务，以原生合约的形式供其他合约调�
 ## Oracle Request
 | 字段      | 字节数    | 描述                                         |
 | ---------- | --------- | ----------------------------------------------- |
-| GasForResponse   | long  |  获取响应所需的费用，由调用Oracle服务的合约设置                                   |
 | Url    | string  | 请求的Url |
 | Filter | string  | 过滤器，可用于过滤无用数据                       |
 | CallbackContract   | 20 bytes   | 回调合约                      |
 | CallbackMethod     | string | 回调方法名                      |
 | UserData     | var bytes | 用户提供的额外数据                      |
+| GasForResponse   | long  |  获取响应所需的费用，由调用Oracle服务的合约设置                                   |
 
 ### GasForResponse
 
 用于支付获取响应交易的费用，GasForResponse应不小于0.1GAS，否则无法发起Oracle请求。
+
+### Filter
+
+过滤器用于在从数据源返回的结果中过滤出有用信息，其中Filter字段为JSONPath表达式，更多关于JSONPath的信息，可点击[此处](https://github.com/json-path/JsonPath)查看。
 
 ## Oracle Response
 | 字段      | 字节数    | 描述                                         |
