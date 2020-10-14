@@ -31,9 +31,13 @@ Neo提供了内置的Oracle服务，以原生合约的形式供其他合约调�
 过滤器用于在从数据源返回的结果中过滤出有用信息，其中Filter字段为JSONPath表达式，更多关于JSONPath的信息，可点击[此处](https://github.com/json-path/JsonPath)查看。
 
 ## Oracle Response
+
+在构建Response交易时会调用Oracle合约的`finish`方法，从而执行回调函数`CallbackMethod`，回调函数需要在请求交易合约内定义。回调函数通常需要以下几个字段：
+
 | 字段      | 字节数    | 描述                                         |
 | ---------- | --------- | ----------------------------------------------- |
-| Id      | ulong   |Oracle Request的Id                                    |
+| Url      | string   |请求的Url                                    |
+|UserData| var bytes | 用户提供的额外数据                      |
 | Code   | byte  | Oracle 响应编码                                   |
 | Result    | var bytes  | 响应内容 |
 
