@@ -40,3 +40,31 @@ Code字段定义了响应交易的执行结果，包括以下五种类型：
 | `0x12`           | `Timeout`          | 执行超时    | `byte`  |
 | `0x14`           | `Forbidden`          | 无执行权限    | `byte`  |
 | `0xff`           | `Error`          | 执行错误    | `byte`  |
+
+## 示例合约
+
+```C#
+    public class OracleDemo : SmartContract
+    {
+        public static void DoRequest()
+        {
+            string url = "http://127.0.0.1:8080/test";
+            string filter = "$.value";  // JSONPath, { "value": "hello world" }
+            string callback = "callback";
+            object userdata = "userdata"; // arbitrary type
+            long gasForResponse = 10000000; // minimum fee 
+
+            Oracle.Request(url, filter, callback, userdata, gasForResponse);
+        }
+
+        public static void Callback(string url, string userdata, int code, string result)
+        {
+            object ret = Json.Deserialize(result); // [ "hello world" ]
+            object[] arr = (object[])ret;
+            string value = (string)arr[0];
+
+            Runtime.Log("userdata: " + userdata);
+            Runtime.Log("response value: " + value);
+        }
+    }
+```
