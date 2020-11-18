@@ -11,7 +11,7 @@ Neo提供了内置的Oracle服务，以原生合约的形式供其他合约调�
 # Oracle 插件
 
 节点在提供Oracle服务时，需要安装相应的Oracle插件。Oracle节点的工作流程如下：
-<div align=center><img src="Oracle_service.png"/></div>
+<div align=center><img src="Oracle_Service.png"/></div>
 
 1. Oracle节点通过在neo-cli交互式命令行输入`start oracle`开启Oracle服务；
 2. 获取网络中未处理的所有Oracle请求，并对每一条请求执行以下操作：
