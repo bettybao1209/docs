@@ -4,15 +4,35 @@
 
 # Neo Oracle
 
-Neo提供了内置的Oracle服务，以原生合约的形式供其他合约调用。为了获取链外的网络数据，合约首先需构造Oracle请求交易，部署上链后则可调用Neo Oracle服务。除了Oracle的节点（由委员会选举）外，网络中的所有节点也会协助交易的运行。当Oracle交易广播到网络中后，每个节点会将当前未验证的交易作为已知的哈希存储在其内存池中，并将其传递给其他节点。
-
-通过此过程，发现Oracle交易的Oracle节点将使用URL并应用过滤器来完成所有包含的请求。然后，通过将结果附加到Oracle交易的TransactionAttribute部分，这些节点将就返回响应的数据达成共识。
-
-一旦收集到足够的签名，就可以将Oracle交易视为已验证，并由共识节点将其存储在一个区块中，待区块上链后即可供合约访问。
+Neo提供了内置的Oracle服务，以原生合约的形式供其他合约调用。为了获取链外的网络数据，合约首先需构造Oracle请求交易，部署上链后则可使用Neo Oracle服务。一个合约可发起多次Oracle请求，存储时会为不同请求自动生成不同的id字段加以区分，Oracle响应通过该Id字段实现与Oracle请求的一一对应。Oracle请求由网络中的Oracle节点进行处理，其中Oracle节点由委员会选举得出。Oracle节点需安装Oracle插件并启动Oracle服务后，才能处理网络中的Oracle请求。启动服务后节点将对链上的Oracle请求进行处理，通过请求中的Url查询结果，启动过滤器对结果进行过滤，并通过将结果附加到交易的TransactionAttribute部分构造响应交易广播至网络进行共识。一旦收集到足够的签名，就可以将Oracle交易视为已验证，并由共识节点将其存储在一个区块中，待区块上链后即可供合约访问。
 
 <div align=center><img src="Oracle.png"/></div>
 
+# Oracle 插件
+
+节点在提供Oracle服务时，需要安装相应的Oracle插件。Oracle节点的工作流程如下：
+<div align=center><img src="Oracle_service.png"/></div>
+
+1. Oracle节点通过在neo-cli交互式命令行输入`start oracle`开启Oracle服务；
+2. 获取网络中未处理的所有Oracle请求，并对每一条请求执行以下操作：
+    a)若该请求在`FinishedCache`中，则执行下一条请求；
+    b)若该请求在`PendingQueue`中，且响应交易不为null，则执行下一条交易；
+    c)否则，执行步骤3；
+3. 根据Url发起Get请求，并使用过滤器对返回结果进行过滤，得到所需数据；
+4. 构建响应交易，并对交易进行签名；
+5. 将签名信息添加到交易中，并广播交易；
+
+若节点开启了RPC服务，用户可通过发起RPC请求执行上述步骤5。
+
+此外，节点会启动一个计时器，每隔`RefreshInterval`的时间对`PendingQueue`的任务进行处理：
+1. 若任务在队列中的时间超过了`MaxTaskTimeout`,则将其从`PendingQueue`移除；
+2. 若任务在队列中的时间在区间`(RefreshInterval, RefreshInterval*2)`中，则发送交易签名。
+
+网络中的所有Oracle节点会对收到的Oracle响应交易进行共识，当收集到N - (N - 1) / 3个节点对交易的签名后，才算取得共识。最终响应交易会存储在区块中。
 ## Oracle Request
+
+用户通过调用Oracle合约内的`Request`方法发起Oracle请求。方法需要提供以下参数：
+
 | 字段      | 字节数    | 描述                                         |
 | ---------- | --------- | ----------------------------------------------- |
 | Url    | string  | 请求的Url |
@@ -22,37 +42,35 @@ Neo提供了内置的Oracle服务，以原生合约的形式供其他合约调�
 | UserData     | var bytes | 用户提供的额外数据                      |
 | GasForResponse   | long  |  获取响应所需的费用，由调用Oracle服务的合约设置                                   |
 
-### GasForResponse
-
-用于支付获取响应交易的费用，GasForResponse应不小于0.1GAS，否则无法发起Oracle请求。
-
+### Url
+使用Neo Oracle服务所请求的Url需使用HTTP/HTTPS网络传输协议，这是基于互联网的数据交换标准。Oracle节点将基于此Url通过发起`GET`请求检索相关的网络资源。
 ### Filter
 
-过滤器用于在从数据源返回的结果中过滤出有用信息，其中Filter字段为JSONPath表达式，更多关于JSONPath的信息，可点击[此处](https://github.com/json-path/JsonPath)查看。
+过滤器用于在从数据源返回的结果中过滤出有用信息，当前以JSONPath标准过滤不必要的数据。为了与过滤器相匹配，当前仅支持JSON响应。更多关于JSONPath的信息，可点击[此处](https://github.com/json-path/JsonPath)查看。
 
+### GasForResponse
+
+用于支付获取响应交易的费用，包括系统费与网络费。GasForResponse应是不小于0.1 GAS的值，若费用不足响应交易会执行失败。
 ## Oracle Response
 
-在构建Response交易时会调用Oracle合约的`finish`方法，从而执行回调函数`CallbackMethod`，回调函数需要在请求交易合约内定义。回调函数通常需要以下几个字段：
+Oracle节点获取到所需数据后，将构造响应交易并附加上自己的签名向网络进行广播。响应交易的结构如下：
 
-| 字段      | 字节数    | 描述                                         |
-| ---------- | --------- | ----------------------------------------------- |
-| Url      | string   |请求的Url                                    |
-|UserData| var bytes | 用户提供的额外数据                      |
-| Code   | byte  | Oracle 响应编码                                   |
-| Result    | var bytes  | 响应内容 |
+<div align=center><img src="ResponseTx.png"/></div>
 
+响应交易的`Attributes`属性设置为`Response`，表明该交易为响应交易，用于区分网络中的其他类型的交易。交易的`Script`字段与`Response`属性的`FixedScript`一致，脚本功能是调用Oracle合约内定义的`finish`方法，从而执行用户自定义的回调函数。
 ### Code
 Code字段定义了响应交易的执行结果，包括以下五种类型：
 
 | 值    | 名称| 说明| 类型|
 |---------------|-------------|---------------|--------------|
 | `0x00`           | `Success`          | 执行成功   | `byte`  |
-| `0x01`           | `NotFound`          | 请求的信息不存在    | `byte`  |
-| `0x12`           | `Timeout`          | 执行超时    | `byte`  |
-| `0x14`           | `Forbidden`          | 无执行权限    | `byte`  |
+| `0x10`           | `ConsensusUnreachable`          | 共识不可达    | `byte`  |
+| `0x12`           | `NotFound`          | 请求的信息不存在    | `byte`  |
+| `0x14`           | `Timeout`          | 执行超时    | `byte`  |
+| `0x16`           | `Forbidden`          | 无执行权限    | `byte`  |
+| `0x18`           | `ResponseTooLarge`          | 响应结果过大    | `byte`  |
+| `0x1a`           | `InsufficientFunds`          | 手续费不足    | `byte`  |
 | `0xff`           | `Error`          | 执行错误    | `byte`  |
-
-
 
 ## 示例合约
 
