@@ -4,34 +4,32 @@
 
 # Neo Oracle
 
-Neo提供了内置的Oracle服务，以原生合约的形式供其他合约调用。为了获取链外的网络数据，合约首先需构造Oracle请求交易，部署上链后则可使用Neo Oracle服务。一个合约可发起多次Oracle请求，存储时会为不同请求自动生成不同的id字段加以区分，Oracle响应通过该Id字段实现与Oracle请求的一一对应。Oracle请求由网络中的Oracle节点进行处理，其中Oracle节点由委员会选举得出。Oracle节点需安装Oracle插件并启动Oracle服务后，才能处理网络中的Oracle请求。启动服务后节点将对链上的Oracle请求进行处理，通过请求中的Url查询结果，启动过滤器对结果进行过滤，并通过将结果附加到交易的TransactionAttribute部分构造响应交易广播至网络进行共识。一旦收集到足够的签名，就可以将Oracle交易视为已验证，并由共识节点将其存储在一个区块中，待区块上链后即可供合约访问。
+Neo提供了内置的Oracle服务，以原生合约的形式供其他合约调用。为了获取链外的网络数据，合约首先需构造Oracle请求交易，部署上链后则可使用Neo Oracle服务。一个合约可发起多次Oracle请求，存储时会为不同请求自动生成不同的id字段加以区分，Oracle响应通过该Id字段实现与Oracle请求的一一对应。Oracle请求由网络中的Oracle节点进行处理，其中Oracle节点由委员会选举得出。Oracle节点需安装Oracle插件并启动Oracle服务后，才能处理网络中的Oracle请求。启动服务后节点将对链上的Oracle请求进行处理，通过请求中的Url查询结果，启动过滤器对结果进行过滤，并通过将结果附加到交易的TransactionAttribute部分构造响应交易。Oracle节点会对响应交易进行链下共识，当收集到足够数量的签名后将交易广播至网络。一旦收集到足够的签名，就可以将Oracle交易视为已验证，并执行交易脚本调用Oracle请求的回调函数。
 
-<div align=center><img src="Oracle.png"/></div>
+<div align=center><img src="Oracle.png" width = 80%/></div>
 
 # Oracle 插件
 
 节点在提供Oracle服务时，需要安装相应的Oracle插件。Oracle节点的工作流程如下：
-<div align=center><img src="Oracle_Service.png"/></div>
+<div align=center><img src="Oracle_Service.png" width = 80% /></div>
 
 1. Oracle节点通过在neo-cli交互式命令行输入`start oracle`开启Oracle服务；
-2. 获取网络中未处理的所有Oracle请求，并对每一条请求执行以下操作：
+2. 获取网络中所有未处理的Oracle请求，并对每一条请求执行以下操作：
     1. 若该请求在`FinishedCache`中，则执行下一条请求；
-    2. 若该请求在`PendingQueue`中，且响应交易不为null，则执行下一条交易；
+    2. 若该请求在`PendingQueue`中，且响应交易不为null，则执行下一条请求；
     3. 否则，执行步骤3；
-3. 根据Url发起Get请求，并使用过滤器对返回结果进行过滤，得到所需数据；
+3. 根据Url发起`Https Get`请求，并使用过滤器对返回结果进行过滤，得到所需数据；
 4. 构建响应交易，并对交易进行签名；
-5. 将签名信息添加到交易中，并广播交易；
-
-若节点开启了RPC服务，用户可通过发起RPC请求执行上述步骤5。
+5. 检查收集到的交易签名数量：
+    1. 若节点收集到`N-(N-1)/3`个交易签名，则将交易进行广播；
+    2. 否则，使用Rpc服务将签名发送至其他的Oracle节点进行链下共识
 
 此外，节点会启动一个计时器，每隔`RefreshInterval`的时间对`PendingQueue`的任务进行处理：
-1. 若任务在队列中的时间超过了`MaxTaskTimeout`,则将其从`PendingQueue`移除；
-2. 若任务在队列中的时间在区间`(RefreshInterval, RefreshInterval*2)`中，则发送交易签名。
-
-网络中的所有Oracle节点会对收到的Oracle响应交易进行共识，当收集到N - (N - 1) / 3个节点对交易的签名后，才算取得共识。最终响应交易会存储在区块中。
+1. 若任务在队列中的时间超过了`MaxTaskTimeout`,则将该超时任务从`PendingQueue`移除；
+2. 若任务在队列中的时间在区间`(RefreshInterval, RefreshInterval*2)`中，则执行上述步骤5.2
 ## Oracle Request
 
-用户通过调用Oracle合约内的`Request`方法发起Oracle请求。方法需要提供以下参数：
+用户通过调用Oracle原生合约内的`Request`方法发起Oracle请求。方法需要提供以下参数：
 
 | 字段      | 字节数    | 描述                                         |
 | ---------- | --------- | ----------------------------------------------- |
@@ -53,13 +51,13 @@ Neo提供了内置的Oracle服务，以原生合约的形式供其他合约调�
 用于支付获取响应交易的费用，包括系统费与网络费。GasForResponse应是不小于0.1 GAS的值，若费用不足响应交易会执行失败。
 ## Oracle Response
 
-Oracle节点获取到所需数据后，将构造响应交易并附加上自己的签名向网络进行广播。响应交易的结构如下：
+Oracle节点获取到所需数据后，将构造响应交易并附加上自己的签名向网络中其他的Oracle节点进行广播进行链下共识。响应交易的结构如下：
 
 <div align=center><img src="ResponseTx.png"/></div>
 
-响应交易的`Attributes`属性设置为`Response`，表明该交易为响应交易，用于区分网络中的其他类型的交易。交易的`Script`字段与`Response`属性的`FixedScript`一致，脚本功能是调用Oracle合约内定义的`finish`方法，从而执行用户自定义的回调函数。
+响应交易的`Attributes`属性设置为`Response`，表明该交易为响应交易，用于区分网络中其他类型的交易。交易的`Script`字段与`Response`属性的`FixedScript`一致，脚本功能是调用Oracle合约内定义的`finish`方法，从而执行用户自定义的回调函数。
 ### Code
-Code字段定义了响应交易的执行结果，包括以下五种类型：
+Code字段定义了响应交易的执行结果，包括以下8种类型：
 
 | 值    | 名称| 说明| 类型|
 |---------------|-------------|---------------|--------------|
